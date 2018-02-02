@@ -1,21 +1,14 @@
-
-# This is the user-interface definition of a Shiny web application.
-# You can find out more about building applications with Shiny here:
-#
-# http://shiny.rstudio.com
-#
-
+# ui.R --------------------------------------------------------------------
 library(shiny)
 library(shinydashboard)
 library(dygraphs)
 library(d3heatmap)
 
-
-scriptHeaders <- function(inputId=NULL) {
-  tagList(
-    singleton(tags$head(tags$script(src = "js/gtm.js")))
-  )
-}
+# scriptHeaders <- function(inputId=NULL) {
+#   tagList(
+#     singleton(tags$head(tags$script(src = "js/gtm.js")))
+#   )
+# }
 
 
 
@@ -46,7 +39,7 @@ dashboardPage(skin = "purple",
                   tabItem(tabName = "dashboard",
                           h1("Executive Summary"),
                           fluidRow(  #row 1
-                            scriptHeaders(),
+                            # scriptHeaders(),
                             box(width=6, height="200px",title="Select Data", solidHeader = T, status = "primary",
                                 selectInput("medium_select", 
                                             "Select Traffic Channel",
@@ -58,9 +51,10 @@ dashboardPage(skin = "purple",
                                                         "Social" = "social")),
                                 helpText("Select which channel to show in the plots below.  For demo purposes it loads sessions, but could easily be revenue, goals or other metrics and segments.")
                             ),
-                            box(width=6, height="200px",title = "What is this?", solidHeader = T, status = "info",
-                                p("This is a demo Google Analytics dashboard using R, Shiny and various other features."),
-                                p("Check out the source code via the Github link to the left. ")
+                            box(width=6, height="200px",title = "Data Info", solidHeader = T, status = "info",
+                                DT::dataTableOutput("ga_account_info_table")     
+                                # p("This is a demo Google Analytics dashboard using R, Shiny and various other features."),
+                                # p("Check out the source code via the Github link to the left.")
                             )
                           ),
                           h2("   Top Level Trends"),

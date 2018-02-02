@@ -1,13 +1,7 @@
-
-# This is the server logic for a Shiny web application.
-# You can find out more about building applications with Shiny here:
-#
-# http://shiny.rstudio.com
-#
-
+# server.R  ------------------------------------------------------------------
 library(shiny)
 
-source('functions.R')
+source("scripts/functions.R")
 
 ## for the loop over plots
 max_plots <- options()$shinyMulti$max_plots
@@ -19,10 +13,9 @@ shinyServer(function(input, output, session) {
   ga_data <- reactive({
     
     ## get your profile ID of your GA account to pull from
-    gadata <- get_ga_data(profileID = options()$rga$profile_id, 
-                          fetch_metrics = "ga:sessions",
-                          fetch_dimensions = "ga:date,ga:medium",
-                          fetch_filter="")
+    gadata <- get_ga_data(gaViewId = options()$ga$gaViewId, 
+                          fetch_metrics = c("sessions"),
+                          fetch_dimensions = c("date","medium"))
     
     # get one column per medium plus a total
     data <- tidyr::spread(gadata, medium, sessions)
@@ -31,6 +24,36 @@ shinyServer(function(input, output, session) {
     data
     
   })
+
+
+  ga_account_info <- reactive({
+
+    get_account_info(options()$ga$gaViewId)    
+  
+  })
+
+  output$ga_account_info_table <- DT::renderDataTable({
+
+    ga_account_info <- ga_account_info()
+    
+    tbl_data <- data.frame(Type = c("Account",
+                                  "Property",
+                                  "View"),
+                           Name = c(ga_account_info$accountName, 
+                            ga_account_info$webPropertyName,
+                            ga_account_info$viewName), 
+                           ID = c(ga_account_info$accountId,
+                            ga_account_info$webPropertyId,
+                            ga_account_info$viewId))
+    
+    
+    datatable(tbl_data,
+              rownames = FALSE,
+              extensions = "Buttons",
+              options = list(dom = "t"))
+    
+  })
+    
   
   anomalyData <- reactive({
     data <- ga_data()
@@ -54,19 +77,20 @@ shinyServer(function(input, output, session) {
     data <- ga_data()
     choice <- input$medium_select2
     ## make reactive to choice
-    agg    <- input$agg_select2
+    agg <- input$agg_select2
     max_a <- input$max_anoms
     
     agg_data <- aggregate_data(data[,c('date', choice)], agg)
     
-    ad <- try(anomalyDetect(agg_data[,c('date', choice)], direction="both", max_anoms = max_a))
+    agg_data$date <- as.POSIXct(agg_data$date)
     
-    if(!is.error(ad)){
+    ad <- try(anomalyDetect(data = agg_data[,c('date', choice)], direction="both",max_anoms = max_a))
+    
+    if(!is.error(ad)) {
       return(ad)
     } else {
       NULL
     }
-    
   })
   
   output$anomalyPlot <- renderPlot({
@@ -177,22 +201,6 @@ shinyServer(function(input, output, session) {
     
     agg_data <- aggregate_data(data[,c('date', choice)], agg)
     
-    #     ## aggregate data if not agg == date
-    #     if(agg %in% c('week', 'month', 'year')){
-    #       agg_data <- tbl_df(agg_data)
-    #       date_type_function <- period_function_generator(agg, pad=T)
-    #       
-    #       agg_data <-  agg_data %>% 
-    #         mutate(period_type = paste0(year(date),
-    #                                     "_",
-    #                                     date_type_function(date))) %>%
-    #         group_by(period_type) %>%
-    #         summarise(date = min(date),
-    #                   metric = sum(metric))
-    #       
-    #       agg_data <- data.frame(agg_data)
-    #     }
-    
     ## dygraph needs a time-series, zoo makes it easier
     ts_data <- zoo(agg_data[,choice], 
                    order.by = agg_data[,'date'])
@@ -265,7 +273,8 @@ shinyServer(function(input, output, session) {
     
     if(is.null(eventUploaded)){
       ## get it from the SQL database instead
-      uploaded_csv <- try(loadData("onlineGAshiny_events"))
+      # uploaded_csv <- try(loadData("onlineGAshiny_events"))
+      uploaded_csv <- read.csv("data/events_sample.csv", stringsAsFactors = FALSE)
       
       if(!is.error(uploaded_csv)){
         return(uploaded_csv)        
